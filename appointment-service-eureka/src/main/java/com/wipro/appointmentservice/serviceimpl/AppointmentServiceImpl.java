@@ -3,6 +3,7 @@ import java.util.List;
 
 
 
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.wipro.appointmentservice.entity.Appointment;
@@ -12,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import com.wipro.appointmentservice.dto.DoctorDTO;
 import com.wipro.appointmentservice.dto.PatientDTO;
 import com.wipro.appointmentservice.dto.AppointmentResponseDTO;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 @Service
 public class AppointmentServiceImpl implements AppointmentService {
 	@Autowired
@@ -49,6 +51,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 		return appointmentRepository.save(appointment);
 	}
 	@Override
+	@CircuitBreaker(name = "doctorService", fallbackMethod = "fallbackMethod")
 	public AppointmentResponseDTO getAppointmentDetails(int appointmentId) {
 		Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
 		DoctorDTO doctor = restTemplate.getForObject("http://localhost:8082/doctor/get/" + appointment.getDoctorId(), DoctorDTO.class);
@@ -56,6 +59,20 @@ public class AppointmentServiceImpl implements AppointmentService {
 		AppointmentResponseDTO response = new AppointmentResponseDTO();
 		response.setDoctor(doctor);
 		response.setPatient(patient);
+		return response;
+	}
+	public AppointmentResponseDTO fallbackMethod(int appointmentId, Exception ex) {
+		AppointmentResponseDTO response = new AppointmentResponseDTO();
+		
+		DoctorDTO doctor = new DoctorDTO();
+		doctor.setDoctorName("Doctor Service Down");
+		
+		PatientDTO patient = new PatientDTO();
+		patient.setPatientName("Patient Service Down");
+		
+		response.setDoctor(doctor);
+		response.setPatient(patient);
+		
 		return response;
 	}
 
